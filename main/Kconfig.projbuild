@@ -1,0 +1,14 @@
+menu "esp32-freqcount Configuration"
+
+config FREQ_SIGNAL_GPIO
+    int "Frequency signal GPIO number"
+	range 0 34
+	default 4
+	help
+		GPIO number (IOxx) from which to read frequency signal.
+
+		Some GPIOs are used for other purposes (flash connections, etc.) and cannot be used.
+
+		GPIOs 35-39 are input-only so cannot be used to drive the One Wire Bus.
+
+endmenu

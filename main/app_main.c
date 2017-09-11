@@ -27,6 +27,7 @@
 #include "freertos/semphr.h"
 #include "driver/gpio.h"
 #include "driver/pcnt.h"
+#include "soc/rtc.h"
 
 #include "esp_log.h"
 #include "sdkconfig.h"
@@ -116,6 +117,10 @@ void app_main()
     led_init();
     led_off();
 
+    // round to nearest MHz (stored value is only precise to MHz)
+    uint32_t apb_freq = (rtc_clk_apb_freq_get() + 500000) / 1000000 * 1000000;
+    ESP_LOGI(TAG, "APB CLK %u Hz", apb_freq);
+
     // set Freq signal GPIO to be input only
 //    gpio_pad_select_gpio(GPIO_FREQ_SIGNAL);
 //    gpio_set_direction(GPIO_FREQ_SIGNAL, GPIO_MODE_INPUT);
@@ -152,8 +157,8 @@ void app_main()
     // set the GPIO back to hi-impedance, as pcnt_unit_config sets it as pull-up
     gpio_set_pull_mode(GPIO_FREQ_SIGNAL, GPIO_FLOATING);
 
-    // enable counter filter
-    pcnt_set_filter_value(PCNT_UNIT, 100);
+    // enable counter filter - at 80MHz APB CLK, 1000 pulses is max 80,000 Hz, so ignore pulses less than 12.5 us.
+    pcnt_set_filter_value(PCNT_UNIT, 1000);
     pcnt_filter_enable(PCNT_UNIT);
 
     pcnt_counter_pause(PCNT_UNIT);

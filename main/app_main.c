@@ -145,7 +145,7 @@ void rmt_tx_task(void * arg)
         // high for exactly x seconds:
         float x = 1.0;  // seconds
         int32_t total_duration = (uint32_t)(x / rmt_tx_task_args->period);
-        ESP_LOGI(TAG, "total_duration %d periods", total_duration);
+        //ESP_LOGI(TAG, "total_duration %d periods", total_duration);
 
         // max duration per item is 2^15-1 = 32767
         while (total_duration > 0)
@@ -154,7 +154,7 @@ void rmt_tx_task(void * arg)
             items[num_items].level0 = 1;
             items[num_items].duration0 = duration;
             total_duration -= duration;
-            ESP_LOGI(TAG, "duration %d", duration);
+            //ESP_LOGI(TAG, "duration %d", duration);
 
             if (total_duration > 0)
             {
@@ -168,15 +168,15 @@ void rmt_tx_task(void * arg)
                 items[num_items].level1 = 0;
                 items[num_items].duration1 = 0;
             }
-            ESP_LOGI(TAG, "[%d].level0 %d", num_items, items[num_items].level0);
-            ESP_LOGI(TAG, "[%d].duration0 %d", num_items, items[num_items].duration0);
-            ESP_LOGI(TAG, "[%d].level1 %d", num_items, items[num_items].level1);
-            ESP_LOGI(TAG, "[%d].duration1 %d", num_items, items[num_items].duration1);
+            //ESP_LOGI(TAG, "[%d].level0 %d", num_items, items[num_items].level0);
+            //ESP_LOGI(TAG, "[%d].duration0 %d", num_items, items[num_items].duration0);
+            //ESP_LOGI(TAG, "[%d].level1 %d", num_items, items[num_items].level1);
+            //ESP_LOGI(TAG, "[%d].duration1 %d", num_items, items[num_items].duration1);
 
             ++num_items;
         }
-        ESP_LOGI(TAG, "num_items %d", num_items);
-
+        //ESP_LOGI(TAG, "num_items %d", num_items);
+        ESP_LOGI(TAG, "RMT TX");
         rmt_write_items(RMT_TX_CHANNEL, items, num_items, false);
         rmt_wait_tx_done(RMT_TX_CHANNEL);
         vTaskDelay(1000 / portTICK_PERIOD_MS);
@@ -251,7 +251,7 @@ void app_main()
         .rmt_mode = RMT_MODE_TX,
         .channel = RMT_TX_CHANNEL,
         .gpio_num = GPIO_RMT,
-        .mem_block_num = 1,  // 0 is invalid
+        .mem_block_num = 1,  // single block
         .clk_div = RMT_CLK_DIV,
         .tx_config.loop_en = false,
         .tx_config.carrier_en = false,

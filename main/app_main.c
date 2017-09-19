@@ -37,7 +37,7 @@
 
 #define GPIO_LED             (GPIO_NUM_2)
 #define GPIO_FREQ_SIGNAL     (CONFIG_FREQ_SIGNAL_GPIO)
-#define GPIO_RMT             (GPIO_NUM_5)
+#define GPIO_RMT             (GPIO_NUM_5)  // also used as PCNT control
 
 #define PCNT_UNIT 0
 #define RMT_TX_CHANNEL RMT_CHANNEL_0
@@ -92,14 +92,20 @@ void led_off(void)
 //    }
 //}
 
+static int16_t read_and_clear_counter(pcnt_unit_t pcnt_unit)
+{
+    int16_t count = 0;
+    pcnt_get_counter_value(PCNT_UNIT, &count);
+    pcnt_counter_clear(PCNT_UNIT);
+    return count;
+}
+
 void read_counter_task(void * arg)
 {
     while (1)
     {
         // read counter
-        int16_t count = 0;
-        pcnt_get_counter_value(PCNT_UNIT, &count);
-        pcnt_counter_clear(PCNT_UNIT);
+        int16_t count = read_and_clear_counter(PCNT_UNIT);
         if (count > 0)
         {
             led_on();
@@ -124,12 +130,8 @@ void rmt_tx_task(void * arg)
 {
     rmt_tx_task_args_t * rmt_tx_task_args = arg;
 
-    bool led = false;
     while (1)
     {
-        led_set(led);
-        led = !led;
-
         rmt_item32_t items[100] = { 0 };
         int num_items = 0;
 
@@ -177,9 +179,24 @@ void rmt_tx_task(void * arg)
         }
         //ESP_LOGI(TAG, "num_items %d", num_items);
         ESP_LOGI(TAG, "RMT TX");
+
+        // clear counter
+        pcnt_counter_clear(PCNT_UNIT);
+        led_set(1);
         rmt_write_items(RMT_TX_CHANNEL, items, num_items, false);
         rmt_wait_tx_done(RMT_TX_CHANNEL);
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
+        led_set(0);
+
+        // read counter
+        int16_t count = 0;
+        pcnt_get_counter_value(PCNT_UNIT, &count);
+        pcnt_counter_clear(PCNT_UNIT);
+        ESP_LOGI(TAG, "counter = %d", count);
+
+        vTaskDelay(3000 / portTICK_PERIOD_MS);
+        pcnt_get_counter_value(PCNT_UNIT, &count);
+        pcnt_counter_clear(PCNT_UNIT);
+        ESP_LOGI(TAG, "counter = %d", count);
     }
 }
 
@@ -213,36 +230,7 @@ void app_main()
 //    // attach the interrupt service routine
 //    gpio_isr_handler_add(GPIO_FREQ_SIGNAL, isr_handler, NULL);
 
-    // set up counter
-    pcnt_config_t pcnt_config = {
-        .pulse_gpio_num = GPIO_FREQ_SIGNAL,
-        .ctrl_gpio_num = -1,  // ignored
-        .channel = PCNT_CHANNEL_0,
-        .unit = PCNT_UNIT,
-        .pos_mode = PCNT_COUNT_INC,
-        .neg_mode = PCNT_COUNT_INC,
-        .lctrl_mode = PCNT_MODE_KEEP,
-        .hctrl_mode = PCNT_MODE_KEEP,
-        .counter_h_lim = 0,
-        .counter_l_lim = 0,
-    };
 
-    /*Initialize PCNT unit */
-    pcnt_unit_config(&pcnt_config);
-
-    // set the GPIO back to hi-impedance, as pcnt_unit_config sets it as pull-up
-    gpio_set_pull_mode(GPIO_FREQ_SIGNAL, GPIO_FLOATING);
-
-    // enable counter filter - at 80MHz APB CLK, 1000 pulses is max 80,000 Hz, so ignore pulses less than 12.5 us.
-    pcnt_set_filter_value(PCNT_UNIT, 1000);
-    pcnt_filter_enable(PCNT_UNIT);
-
-    pcnt_counter_pause(PCNT_UNIT);
-    pcnt_counter_clear(PCNT_UNIT);
-
-//    xTaskCreate(read_counter_task, "read_counter_task", 2048, NULL, 10, NULL);
-
-    pcnt_counter_resume(PCNT_UNIT);
 
 
     // RMT
@@ -267,7 +255,56 @@ void app_main()
     rmt_tx_task_args_t rmt_tx_task_args = {
         .period = RMT_PERIOD,
     };
+
+    // route RMT signal to PCNT control
+    // https://github.com/espressif/esp-idf/blob/master/tools/unit-test-app/components/unity/ref_clock.c
+//    int pcnt_sig_idx = (PCNT_UNIT < 5) ?
+//            PCNT_SIG_CH0_IN0_IDX + 4 * PCNT_UNIT :
+//            PCNT_SIG_CH0_IN5_IDX + 4 * (PCNT_UNIT - 5);
+//    gpio_matrix_in(GPIO_RMT, pcnt_sig_idx, false);
+//    if (GPIO_RMT != 20) {
+//        PIN_INPUT_ENABLE(GPIO_PIN_MUX_REG[GPIO_RMT]);
+//    } else {
+//        PIN_INPUT_ENABLE(PERIPHS_IO_MUX_GPIO20_U);
+//    }
+
+
     xTaskCreate(rmt_tx_task, "rmt_tx_task", 2048, &rmt_tx_task_args, 10, NULL);
+
+
+
+
+    // set up counter
+    pcnt_config_t pcnt_config = {
+        .pulse_gpio_num = GPIO_FREQ_SIGNAL,
+        .ctrl_gpio_num = GPIO_RMT,
+        .channel = PCNT_CHANNEL_0,
+        .unit = PCNT_UNIT,
+        .pos_mode = PCNT_COUNT_INC,
+        .neg_mode = PCNT_COUNT_INC,
+        .lctrl_mode = PCNT_MODE_DISABLE,
+        .hctrl_mode = PCNT_MODE_KEEP,
+        .counter_h_lim = 0,
+        .counter_l_lim = 0,
+    };
+
+    /*Initialize PCNT unit */
+    pcnt_unit_config(&pcnt_config);
+
+    // set the GPIO back to hi-impedance, as pcnt_unit_config sets it as pull-up
+    gpio_set_pull_mode(GPIO_FREQ_SIGNAL, GPIO_FLOATING);
+
+    // enable counter filter - at 80MHz APB CLK, 1000 pulses is max 80,000 Hz, so ignore pulses less than 12.5 us.
+    pcnt_set_filter_value(PCNT_UNIT, 1000);
+    pcnt_filter_enable(PCNT_UNIT);
+
+    pcnt_counter_pause(PCNT_UNIT);
+    pcnt_counter_clear(PCNT_UNIT);
+
+    //xTaskCreate(read_counter_task, "read_counter_task", 2048, NULL, 10, NULL);
+
+    pcnt_counter_resume(PCNT_UNIT);
+
 
     ESP_LOGI(TAG, "[APP] Idle.");
     while(1) ;

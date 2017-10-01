@@ -45,6 +45,27 @@
 #define RMT_CLK_DIV            160   // results in 2us steps (80MHz / 160 = 0.5 MHz
 //#define RMT_CLK_DIV          1  // results in 25ns steps (80MHz / 2 / 1 = 40 MHz)
 
+// The counter is signed 16-bit, so maximum positive value is 32767
+// The filter is unsigned 10-bit, maximum value is 1023. Use full period of maximum frequency.
+// For higher expected frequencies, the sample period and filter must be reduced.
+
+// suitable up to 16,383.5 kHz
+#define SAMPLE_PERIOD 1.0  // seconds
+#define FILTER_LENGTH 1023  // APB @ 80MHz, limits to < 39,100 Hz
+
+// suitable up to 163,835 Hz
+//#define SAMPLE_PERIOD 0.1  // seconds
+//#define FILTER_LENGTH 122  // APB @ 80MHz, limits to < 655,738 Hz
+
+// suitable up to 1,638,350 Hz
+//#define SAMPLE_PERIOD 0.01  // seconds
+//#define FILTER_LENGTH 12  // APB @ 80MHz, limits to < 3,333,333 Hz
+
+// suitable up to 16,383,500 Hz - no filter
+//#define SAMPLE_PERIOD 0.001  // seconds
+//#define FILTER_LENGTH 0  // APB @ 80MHz, limits to < 40 MHz
+
+
 //#define ESP_INTR_FLAG_DEFAULT 0
 //
 //SemaphoreHandle_t xSemaphore = NULL;
@@ -123,7 +144,7 @@ void read_counter_task(void * arg)
 
 typedef struct
 {
-    float period;
+    double period;
 } rmt_tx_task_args_t;
 
 void rmt_tx_task(void * arg)
@@ -144,9 +165,9 @@ void rmt_tx_task(void * arg)
 //            items[num_items].duration1 = 1;
 //        }
 
-        // high for exactly x seconds:
-        float x = 1.0;  // seconds
-        int32_t total_duration = (uint32_t)(x / rmt_tx_task_args->period);
+        // enable counter for exactly x seconds:
+        double sample_period = SAMPLE_PERIOD;
+        int32_t total_duration = (uint32_t)(sample_period / rmt_tx_task_args->period);
         //ESP_LOGI(TAG, "total_duration %d periods", total_duration);
 
         // max duration per item is 2^15-1 = 32767
@@ -178,7 +199,7 @@ void rmt_tx_task(void * arg)
             ++num_items;
         }
         //ESP_LOGI(TAG, "num_items %d", num_items);
-        ESP_LOGI(TAG, "RMT TX");
+        //ESP_LOGI(TAG, "RMT TX");
 
         // clear counter
         pcnt_counter_clear(PCNT_UNIT);
@@ -193,10 +214,15 @@ void rmt_tx_task(void * arg)
         pcnt_counter_clear(PCNT_UNIT);
         ESP_LOGI(TAG, "counter = %d", count);
 
-        vTaskDelay(3000 / portTICK_PERIOD_MS);
-        pcnt_get_counter_value(PCNT_UNIT, &count);
-        pcnt_counter_clear(PCNT_UNIT);
-        ESP_LOGI(TAG, "counter = %d", count);
+        // TODO: check for overflow?
+
+        double frequency = count / 2.0 / sample_period;
+        ESP_LOGI(TAG, "frequency %f", frequency);
+
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+        //pcnt_get_counter_value(PCNT_UNIT, &count);
+        //pcnt_counter_clear(PCNT_UNIT);
+        //ESP_LOGI(TAG, "counter = %d", count);
     }
 }
 
@@ -250,10 +276,10 @@ void app_main()
     //rmt_set_source_clk(RMT_TX_CHANNEL, RMT_BASECLK_APB);
     rmt_driver_install(rmt_tx.channel, 0, 0);
 
-    const float RMT_PERIOD = (float)(RMT_CLK_DIV) / 80000000.0;
-    ESP_LOGI(TAG, "RMT_PERIOD %.10e", RMT_PERIOD);
+    const double rmt_period = (double)(RMT_CLK_DIV) / 80000000.0;
+    ESP_LOGI(TAG, "rmt_period %.4e s", rmt_period);
     rmt_tx_task_args_t rmt_tx_task_args = {
-        .period = RMT_PERIOD,
+        .period = rmt_period,
     };
 
     // route RMT signal to PCNT control
@@ -269,9 +295,7 @@ void app_main()
 //    }
 
 
-    xTaskCreate(rmt_tx_task, "rmt_tx_task", 2048, &rmt_tx_task_args, 10, NULL);
-
-
+    xTaskCreate(rmt_tx_task, "rmt_tx_task", 4096, &rmt_tx_task_args, 10, NULL);
 
 
     // set up counter
@@ -280,7 +304,7 @@ void app_main()
         .ctrl_gpio_num = GPIO_RMT,
         .channel = PCNT_CHANNEL_0,
         .unit = PCNT_UNIT,
-        .pos_mode = PCNT_COUNT_INC,
+        .pos_mode = PCNT_COUNT_INC,  // count both rising and falling edges
         .neg_mode = PCNT_COUNT_INC,
         .lctrl_mode = PCNT_MODE_DISABLE,
         .hctrl_mode = PCNT_MODE_KEEP,
@@ -288,14 +312,13 @@ void app_main()
         .counter_l_lim = 0,
     };
 
-    /*Initialize PCNT unit */
     pcnt_unit_config(&pcnt_config);
 
-    // set the GPIO back to hi-impedance, as pcnt_unit_config sets it as pull-up
+    // set the GPIO back to high-impedance, as pcnt_unit_config sets it as pull-up
     gpio_set_pull_mode(GPIO_FREQ_SIGNAL, GPIO_FLOATING);
 
     // enable counter filter - at 80MHz APB CLK, 1000 pulses is max 80,000 Hz, so ignore pulses less than 12.5 us.
-    pcnt_set_filter_value(PCNT_UNIT, 1000);
+    pcnt_set_filter_value(PCNT_UNIT, FILTER_LENGTH);
     pcnt_filter_enable(PCNT_UNIT);
 
     pcnt_counter_pause(PCNT_UNIT);

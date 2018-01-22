@@ -65,6 +65,8 @@
 //#define SAMPLE_PERIOD 0.001  // seconds
 //#define FILTER_LENGTH 0  // APB @ 80MHz, limits to < 40 MHz
 
+#define GPIO_CONSTANT_LOW   0x30
+#define GPIO_CONSTANT_HIGH  0x38
 
 void led_init(void)
 {
@@ -95,6 +97,9 @@ typedef struct
 void rmt_tx_task(void * arg)
 {
     rmt_tx_task_args_t * rmt_tx_task_args = arg;
+
+    // route incoming frequency signal to onboard LED when sampling
+    gpio_matrix_out(GPIO_LED, SIG_IN_FUNC228_IDX, false, false);
 
     while (1)
     {
@@ -140,18 +145,20 @@ void rmt_tx_task(void * arg)
         // clear counter
         pcnt_counter_clear(PCNT_UNIT);
         rmt_write_items(RMT_TX_CHANNEL, items, num_items, false);
+
+        gpio_matrix_in(GPIO_FREQ_SIGNAL, SIG_IN_FUNC228_IDX, false);
         rmt_wait_tx_done(RMT_TX_CHANNEL);
+        gpio_matrix_in(GPIO_CONSTANT_LOW, SIG_IN_FUNC228_IDX, false);
 
         // read counter
         int16_t count = 0;
         pcnt_get_counter_value(PCNT_UNIT, &count);
         pcnt_counter_clear(PCNT_UNIT);
-        ESP_LOGI(TAG, "counter = %d", count);
 
         // TODO: check for overflow?
 
         double frequency = count / 2.0 / sample_period;
-        ESP_LOGI(TAG, "frequency %f", frequency);
+        ESP_LOGI(TAG, "frequency %f, counter %d", frequency, count);
 
         vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
@@ -164,10 +171,6 @@ void app_main()
     ESP_LOGI(TAG, "[APP] Startup..");
     led_init();
     led_off();
-
-    // route incoming frequency signal to onboard LED
-    gpio_matrix_in(GPIO_FREQ_SIGNAL, SIG_IN_FUNC228_IDX, false);
-    gpio_matrix_out(GPIO_LED, SIG_IN_FUNC228_IDX, false, false);
 
     // round to nearest MHz (stored value is only precise to MHz)
     uint32_t apb_freq = (rtc_clk_apb_freq_get() + 500000) / 1000000 * 1000000;

@@ -1,5 +1,12 @@
 menu "esp32-freqcount Configuration"
 
+config ONBOARD_LED_GPIO
+    int "Onboard LED GPIO number"
+    range 0 34
+    default 2
+    help
+        GPIO number (IOxx) connected to onboard LED.
+
 config FREQ_SIGNAL_GPIO
     int "Frequency signal GPIO number"
 	range 0 34

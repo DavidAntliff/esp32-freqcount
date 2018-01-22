@@ -35,7 +35,7 @@
 
 #define TAG "freqcount"
 
-#define GPIO_LED             (GPIO_NUM_2)
+#define GPIO_LED             (CONFIG_ONBOARD_LED_GPIO)
 #define GPIO_FREQ_SIGNAL     (CONFIG_FREQ_SIGNAL_GPIO)
 #define GPIO_RMT             (GPIO_NUM_5)  // also used as PCNT control
 

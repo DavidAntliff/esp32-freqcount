@@ -1,6 +1,6 @@
 # esp32-freqcount
 
-ESP32 Application to accurately count frequency of pulses on a GPIO using Pulse Counter, RMT and Interrupt.
+ESP32 component to facilitate accurately measuring the frequency of pulses on a GPIO using Pulse Counter, RMT and Interrupt.
 
 The RMT generates a pulse of precise length, which is mapped to a GPIO.
 

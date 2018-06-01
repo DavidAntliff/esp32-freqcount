@@ -136,6 +136,16 @@ void frequency_count_task_function(void * pvParameter)
     configuration = *(frequency_count_configuration_t*)pvParameter;
     frequency_count_configuration_t *task_inputs = &configuration;
 
+    ESP_LOGI(TAG, "pcnt_gpio %d, pcnt_unit %d, pcnt_channel %d, rmt_gpio %d, rmt_clk_div %d, sampling_period_seconds %f, sampling_window_seconds %f, filter_length %d",
+        task_inputs->pcnt_gpio,
+        task_inputs->pcnt_unit,
+        task_inputs->pcnt_channel,
+        task_inputs->rmt_gpio,
+        task_inputs->rmt_clk_div,
+        task_inputs->sampling_period_seconds,
+        task_inputs->sampling_window_seconds,
+        task_inputs->filter_length);
+
     init_rmt(task_inputs->rmt_gpio, task_inputs->rmt_channel, task_inputs->rmt_clk_div);
     init_pcnt(task_inputs->pcnt_gpio, task_inputs->rmt_gpio, task_inputs->pcnt_unit, task_inputs->pcnt_channel, task_inputs->filter_length);
 

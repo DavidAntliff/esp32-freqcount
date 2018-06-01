@@ -185,7 +185,11 @@ void frequency_count_task_function(void * pvParameter)
 
         ESP_LOGD(TAG, "counter %d, frequency %f Hz", count, frequency_hz);
 
-        vTaskDelayUntil(&last_wake_time, task_inputs->sampling_period_seconds * 1000 / portTICK_PERIOD_MS);
+        int delayTime = task_inputs->sampling_period_seconds * 1000 / portTICK_PERIOD_MS;
+        if(delayTime > 0)
+        {
+            vTaskDelayUntil(&last_wake_time, delayTime);
+        }
     }
 
     free(task_inputs);

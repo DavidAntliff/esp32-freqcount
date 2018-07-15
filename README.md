@@ -2,7 +2,7 @@
 
 ## Introduction
 
-This ESP32 component facilitates accurately measuring the frequency of pulses on a GPIO using Pulse Counter, RMT and Interrupt.
+This ESP32 component facilitates accurately measuring the frequency of square pulses on a GPIO using Pulse Counter, RMT and Interrupt.
 
 The RMT generates a pulse of precise length, which is mapped to a GPIO. This is the sampling window signal.
 
@@ -21,6 +21,14 @@ It is written and tested for the [ESP-IDF](https://github.com/espressif/esp-idf)
 ## Example
 
 An example application that uses this component is available: [esp32-freqcount-example](https://github.com/DavidAntliff/esp32-freqcount-example)
+
+## Features
+
+* Measurement of average frequency of input signal in Hertz.
+
+## Documentation
+
+Automatically generated API documentation is available [here](https://davidantliff.github.io/esp32-freqcount/index.html).
 
 ## Configuration
 

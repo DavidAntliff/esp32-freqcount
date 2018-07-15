@@ -1,5 +1,7 @@
 # esp32-freqcount
 
+[![license](https://img.shields.io/github/license/mashape/apistatus.svg)]()
+
 ## Introduction
 
 This ESP32 component facilitates accurately measuring the frequency of square pulses on a GPIO using Pulse Counter, RMT and Interrupt.

@@ -172,6 +172,12 @@ void frequency_count_task_function(void * pvParameter)
         // start sampling window
         ESP_ERROR_CHECK(rmt_write_items(task_inputs->rmt_channel, rmt_items, num_rmt_items, false));
 
+        // call wndow-start callback if set
+        if (task_inputs->window_start_callback)
+        {
+            (task_inputs->window_start_callback)();
+        }
+
         // wait for window to finish
         ESP_ERROR_CHECK(rmt_wait_tx_done(task_inputs->rmt_channel, portMAX_DELAY));
 
@@ -183,7 +189,7 @@ void frequency_count_task_function(void * pvParameter)
 
         frequency_hz = count / 2.0 / task_inputs->sampling_window_seconds;
 
-        // call the callback
+        // call the frequency update callback
         if (task_inputs->frequency_update_callback)
         {
             (task_inputs->frequency_update_callback)(frequency_hz);

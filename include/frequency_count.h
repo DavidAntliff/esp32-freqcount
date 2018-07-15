@@ -24,7 +24,7 @@
  */
 
 /**
- * @file app_main.c
+ * @file frequency_count.h
  * @brief Example application for the ESP32 Frequency Counter component.
  *
  * An accurate sampling window signal is created by the RMT component, during which time

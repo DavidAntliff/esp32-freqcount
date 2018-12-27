@@ -1,3 +1,4 @@
+
 /*
  * MIT License
  *
@@ -30,28 +31,29 @@
 #include "freertos/queue.h"
 #include "esp_system.h"
 #include "esp_log.h"
-#include "driver/pcnt.h"
 #include "driver/gpio.h"
+
 
 #include "frequency_count.h"
 
 #define TAG "frequency_counter"
 
-static void init_rmt(uint8_t tx_gpio, rmt_channel_t channel, uint8_t clk_div)
+static void init_rmt(gpio_num_t tx_gpio, rmt_channel_t channel, uint8_t clk_div)
 {
     ESP_LOGD(TAG, "%s", __FUNCTION__);
 
-    rmt_config_t rmt_tx = {
-        .rmt_mode = RMT_MODE_TX,
-        .channel = channel,
-        .gpio_num = tx_gpio,
-        .mem_block_num = 1,  // single block
-        .clk_div = clk_div,
-        .tx_config.loop_en = false,
-        .tx_config.carrier_en = false,
-        .tx_config.idle_level = RMT_IDLE_LEVEL_LOW,
-        .tx_config.idle_output_en = true,
-    };
+    rmt_config_t rmt_tx;
+    rmt_tx.rmt_mode = RMT_MODE_TX;
+    rmt_tx.channel = channel;
+    rmt_tx.gpio_num = tx_gpio;
+    rmt_tx.mem_block_num = 1;  // single block
+    rmt_tx.clk_div = clk_div;
+    
+    rmt_tx.tx_config.loop_en = false;
+    rmt_tx.tx_config.carrier_en = false;
+    rmt_tx.tx_config.idle_level = RMT_IDLE_LEVEL_LOW;
+    rmt_tx.tx_config.idle_output_en = true;
+    
     ESP_ERROR_CHECK(rmt_config(&rmt_tx));
     ESP_ERROR_CHECK(rmt_driver_install(rmt_tx.channel, 0, 0));
 }
@@ -98,7 +100,7 @@ static int create_rmt_window(rmt_item32_t * items, double sampling_window_second
     return num_items;
 }
 
-static void init_pcnt(uint8_t pulse_gpio, uint8_t ctrl_gpio, pcnt_unit_t unit, pcnt_channel_t channel, uint16_t filter_length)
+static void init_pcnt(gpio_num_t pulse_gpio, uint8_t ctrl_gpio, pcnt_unit_t unit, pcnt_channel_t channel, uint16_t filter_length)
 {
     ESP_LOGD(TAG, "%s", __FUNCTION__);
 
@@ -153,7 +155,7 @@ void frequency_count_task_function(void * pvParameter)
     const double rmt_period = (double)(task_inputs->rmt_clk_div) / 80000000.0;
 
     const size_t items_size = RMT_MEM_BLOCK_BYTE_NUM * task_inputs->rmt_max_blocks;
-    rmt_item32_t * rmt_items = malloc(items_size);
+    rmt_item32_t * rmt_items = (rmt_item32_t *) malloc(items_size);
     assert(rmt_items);
     memset(rmt_items, 0, items_size);
     int num_rmt_items = create_rmt_window(rmt_items, task_inputs->sampling_window_seconds, rmt_period);
@@ -187,7 +189,7 @@ void frequency_count_task_function(void * pvParameter)
 
         // TODO: check for overflow?
 
-        frequency_hz = count / 2.0 / task_inputs->sampling_window_seconds;
+        frequency_hz = (count >> 1) / task_inputs->sampling_window_seconds;
 
         // call the frequency update callback
         if (task_inputs->frequency_update_callback)

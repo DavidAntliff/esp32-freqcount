@@ -33,7 +33,10 @@
 #include "driver/pcnt.h"
 #include "driver/gpio.h"
 #include "driver/rmt.h"
-#include "esp_idf_version.h"
+
+#ifdef INCLUDE_ESP_IDF_VERSION_H
+# include "esp_idf_version.h"
+#endif
 
 #include "frequency_count.h"
 

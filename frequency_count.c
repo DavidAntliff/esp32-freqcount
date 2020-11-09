@@ -174,8 +174,6 @@ void frequency_count_task_function(void * pvParameter)
 
     while (1)
     {
-        last_wake_time = xTaskGetTickCount();
-
         // clear counter
         ESP_ERROR_CHECK(pcnt_counter_clear(task_inputs->pcnt_unit));
 
